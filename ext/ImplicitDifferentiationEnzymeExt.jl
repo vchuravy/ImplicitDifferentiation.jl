@@ -30,7 +30,7 @@ function EnzymeRules.forward(
     dx = x.dval
     x = x.val
     args = ntuple(length(args)) do i
-        args[i].val
+        return args[i].val
     end
 
     prep = ImplicitFunctionPreparation(eltype(x))
@@ -64,11 +64,11 @@ function EnzymeRules.forward(
     else
         dc = map(B, dx)
         dy = map(dc) do dₖc
-            linear_solver(A, Aᵀ, -dₖc, y0)
+            return linear_solver(A, Aᵀ, -dₖc, y0)
         end
 
         df = ntuple(Val(EnzymeRules.width(config))) do i
-            (dy[i]::typeof(y0), nothing)
+            return (dy[i]::typeof(y0), nothing)
         end
 
         if EnzymeRules.needs_primal(config)
@@ -93,7 +93,7 @@ function EnzymeRules.augmented_primal(
 
     x = x.val
     args = ntuple(length(args)) do i
-        args[i].val
+        return args[i].val
     end
 
     prep = ImplicitFunctionPreparation(eltype(x))
