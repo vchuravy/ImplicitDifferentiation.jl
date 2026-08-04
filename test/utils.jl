@@ -4,6 +4,7 @@ using ChainRulesCore
 using ChainRulesTestUtils
 using ComponentArrays
 import DifferentiationInterface as DI
+using Enzyme: Enzyme
 using ForwardDiff: ForwardDiff
 import ImplicitDifferentiation as ID
 using ImplicitDifferentiation: ImplicitFunction, prepare_implicit
@@ -13,7 +14,7 @@ using Random: rand!
 using Test
 using Zygote: Zygote, ZygoteRuleConfig
 
-@kwdef struct Scenario{S,C,X,A,K,Xp,Ap}
+@kwdef struct Scenario{S, C, X, A, K, Xp, Ap}
     solver::S
     conditions::C
     x::X
@@ -54,7 +55,7 @@ end
 
 (nd::NonDifferentiable)(x, args...) = nd.solver(identity_break_autodiff(x), args...)
 
-function add_arg_mult(scen::Scenario, a=3)
+function add_arg_mult(scen::Scenario, a = 3)
     @assert isempty(scen.args)
     function solver_with_arg_mult(x, a)
         y, z = scen.solver(x)
@@ -64,21 +65,23 @@ function add_arg_mult(scen::Scenario, a=3)
         return scen.conditions(x, y ./ a, z)
     end
     implicit_kwargs_with_arg_mult = NamedTuple(
-        Dict(k => if k == :input_example
-            (only(v), a)
-        else
-            v
-        end for (k, v) in pairs(scen.implicit_kwargs))
+        Dict(
+            k => if k == :input_example
+                    (only(v), a)
+            else
+                    v
+            end for (k, v) in pairs(scen.implicit_kwargs)
+        )
     )
 
     return Scenario(;
-        solver=solver_with_arg_mult,
-        conditions=conditions_with_arg_mult,
-        x=scen.x,
-        args=(a,),
-        implicit_kwargs=implicit_kwargs_with_arg_mult,
-        x_prep=scen.x_prep,
-        args_prep=(zero(a),),
+        solver = solver_with_arg_mult,
+        conditions = conditions_with_arg_mult,
+        x = scen.x,
+        args = (a,),
+        implicit_kwargs = implicit_kwargs_with_arg_mult,
+        x_prep = scen.x_prep,
+        args_prep = (zero(a),),
     )
 end
 
@@ -89,7 +92,7 @@ function test_implicit_call(scen::Scenario)
     y, z = implicit(scen.x, scen.args...)
     y_true, z_true = scen.solver(scen.x, scen.args...)
 
-    @testset "Call" begin
+    return @testset "Call" begin
         @test y ≈ y_true
         @test z == z_true
     end
@@ -116,7 +119,7 @@ function test_implicit_duals(scen::Scenario; type_stability::Bool)
         map(DI.Constant, scen.args)...,
     )[1]
 
-    @testset "Duals" begin
+    return @testset "Duals" begin
         @testset "Prepared" begin
             y_and_dy, z = implicit(prep, x_and_dx, scen.args...)
             T = tag(y_and_dy)
@@ -158,7 +161,7 @@ function test_implicit_rrule(scen::Scenario; type_stability::Bool)
         first ∘ scen.solver, AutoZygote(), scen.x, (dy,), map(DI.Constant, scen.args)...
     )[1]
 
-    @testset "ChainRule" begin
+    return @testset "ChainRule" begin
         (y, z), pb = rrule_via_ad(ZygoteRuleConfig(), implicit, scen.x, scen.args...)
         dimpl, dx = pb((dy, dz))
         @test y ≈ y_true
@@ -183,7 +186,7 @@ function test_implicit_jacobian(scen::Scenario, outer_backend::AbstractADType)
         first ∘ scen.solver, outer_backend, scen.x, map(DI.Constant, scen.args)...
     )
 
-    @testset "Jacobian - $outer_backend" begin
+    return @testset "Jacobian - $outer_backend" begin
         if outer_backend isa AutoForwardDiff
             @testset "Prepared" begin
                 jac = DI.jacobian(
@@ -202,15 +205,15 @@ function test_implicit_jacobian(scen::Scenario, outer_backend::AbstractADType)
 end
 
 function test_implicit(
-    scen::Scenario,
-    outer_backends=[
-        AutoForwardDiff(),
-        AutoZygote(),
-        AutoEnzyme(; mode=Enzyme.Forward),
-        AutoEnzyme(; mode=Enzyme.Reverse),
-    ];
-    type_stability::Bool=false,
-)
+        scen::Scenario,
+        outer_backends = [
+            AutoForwardDiff(),
+            AutoZygote(),
+            AutoEnzyme(; mode = Enzyme.Forward),
+            AutoEnzyme(; mode = Enzyme.Reverse),
+        ];
+        type_stability::Bool = false,
+    )
     return @testset "$scen" begin
         test_implicit_call(scen)
         test_implicit_duals(scen; type_stability)
